@@ -21,7 +21,7 @@
 `include "caravel_netlists.v"
 `include "spiflash.v"
 
-module wb_buttons_leds_tb;
+module wshbone_slave_tb;
 	reg clock;
 	reg RSTB;
 	reg CSB;
@@ -30,11 +30,9 @@ module wb_buttons_leds_tb;
 
     wire gpio;
     wire [37:0] mprj_io;
-	wire [7:0] leds;
-	reg [2:0] buttons = 0;
+	wire done_signal;
 
-	assign mprj_io[9:7] = buttons;
-    assign leds = mprj_io[17:10];
+    assign done_signal = mprj_io[10];
 
 	// External clock is used by default.  Make this artificially fast for the
 	// simulation.  Normally this would be a slow clock and the digital PLL
@@ -48,7 +46,7 @@ module wb_buttons_leds_tb;
 
 	initial begin
 		$dumpfile("wshbone_slave.vcd");
-		$dumpvars(0, wb_buttons_leds_tb);
+		$dumpvars(0, wshbone_slave_tb);
 
 		// Repeat cycles of 1000 clock edges as needed to complete testbench
 		repeat (25) begin
@@ -66,11 +64,9 @@ module wb_buttons_leds_tb;
 	end
 
 	initial begin
-        // set all buttons
-        buttons = 3'b111;
 
         // wait for leds to get set
-	    wait(leds == 8'b11111111);
+	    wait(done_signal == 1'b1);
 		
 		`ifdef GL
 	    	$display("Monitor: Test 1 Mega-Project IO (GL) Passed");

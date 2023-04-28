@@ -35,7 +35,7 @@
  *-------------------------------------------------------------
  */
 
-module user_proj_example #(
+module wb_port_test #( //maybe we can give it its own name 
     parameter   [31:0]  BASE_ADDRESS    = 32'h03000000,        // base address
     parameter   [31:0]  KEY_0_ADDRESS   = BASE_ADDRESS,
     parameter   [31:0]  KEY_1_ADDRESS   = BASE_ADDRESS + 4,

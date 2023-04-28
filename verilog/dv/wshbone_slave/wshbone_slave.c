@@ -25,13 +25,16 @@
 		- Observes counter value through the MPRJ lower 8 IO pins (in the testbench)
 */
 
-#define KEY      (*(volatile uint32_t*)0x30000004)
-#define PLAIN   (*(volatile uint32_t*)0x300000012)
-#define CMOS_OUT   (*(volatile uint32_t*)0x30000020)
-#define CONTROL   (*(volatile uint32_t*)0x300000024)
+#define KEY      (*(volatile uint64_t*)0x30000000)
+#define PLAIN   (*(volatile uint64_t*)0x300000008)
+#define CMOS_OUT   (*(volatile uint64_t*)0x30000010)
+#define CONTROL   (*(volatile uint64_t*)0x300000018)
 
+/*uint64_t key_val = KEY;
+uint64_t plain_val = PLAIN;
 
-
+PLAIN = plain_val;
+PLAIN = 0x0123456789ABCDEFL;*/
 
 void main()
 {
@@ -65,24 +68,24 @@ void main()
 	// Observe counter value in the testbench
 	/*reg_mprj_io_7 =  GPIO_MODE_USER_STD_INPUT_NOPULL;
 	reg_mprj_io_8 =  GPIO_MODE_USER_STD_INPUT_NOPULL;
-	reg_mprj_io_9 =  GPIO_MODE_USER_STD_INPUT_NOPULL;
-    */
+	reg_mprj_io_9 =  GPIO_MODE_USER_STD_INPUT_NOPULL;*/
     
 	reg_mprj_io_10 =  GPIO_MODE_USER_STD_OUTPUT;
-	reg_mprj_io_11 =  GPIO_MODE_USER_STD_OUTPUT;
+	/*reg_mprj_io_11 =  GPIO_MODE_USER_STD_OUTPUT;
 	reg_mprj_io_12 =  GPIO_MODE_USER_STD_OUTPUT;
 	reg_mprj_io_13 =  GPIO_MODE_USER_STD_OUTPUT;
 	reg_mprj_io_14 =  GPIO_MODE_USER_STD_OUTPUT;
 	reg_mprj_io_15 =  GPIO_MODE_USER_STD_OUTPUT;
 	reg_mprj_io_16 =  GPIO_MODE_USER_STD_OUTPUT;
-	reg_mprj_io_17 =  GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_17 =  GPIO_MODE_USER_STD_OUTPUT;*/
 
 	/* Apply configuration */
 	reg_mprj_xfer = 1;
 	while (reg_mprj_xfer == 1);
 
-    // wait for all 3 buttons to get pressed
-    while (reg_wb_buttons != 7);
+    for (int i = 0; i < 8; i++) {
+        reg_wb
+    }
 
     // then set all the leds, signalling the end of the test
     reg_wb_leds = 0xFF;
