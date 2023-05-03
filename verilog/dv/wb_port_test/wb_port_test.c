@@ -20,10 +20,13 @@
 #include <stub.c>
 
 //#define reg_mprj_slave (*(volatile uint32_t*)0x30000000)
+//#define KEY_0     (*(volatile uint32_t*)0x30000000)
+//#define KEY_1      (*(volatile uint32_t*)0x30000004)
 #define KEY      (*(volatile uint64_t*)0x30000000)
-#define PLAIN   (*(volatile uint64_t*)0x300000008)
+//#define PLAIN_0   (*(volatile uint32_t*)0x30000008)
+#define PLAIN   (*(volatile uint64_t*)0x30000008)
 #define CMOS_OUT   (*(volatile uint64_t*)0x30000010)
-#define CONTROL   (*(volatile uint64_t*)0x300000018)
+#define CONTROL   (*(volatile uint32_t*)0x30000018)
 
 
 /*
@@ -54,7 +57,7 @@ void main()
 
     reg_spi_enable = 1;
     reg_wb_enable = 1;
-	reg_spimaster_config = 0xa002;	// Enable, prescaler = 2,
+	//reg_spimaster_config = 0xa002;	// Enable, prescaler = 2,
                                         // connect to housekeeping SPI
 
     // Connect the housekeeping SPI to the SPI master
@@ -85,24 +88,27 @@ void main()
 	//reg_la2_oenb = reg_la2_iena = 0x00000000;    // [95:64]
 
     // Flag start of the test
-    	reg_mprg_datal = 0xAB600000;
-    for (int i = 0; i < 4; i++){
-        if (i==0){
-            KEY = 0x0123456789ABCDEFL;
-            if (KEY != 0x0123456789ABCDEFL){
+    	reg_mprj_datal = 0xAB600000;
+   // for (int i = 0; i < 4; i++){
+        //if (i==0){
+            KEY = 0x0123456789ABCDEFUL;
+            volatile uint32_t KEY_test = KEY;
+	        PLAIN = 0x0101010101010101UL;
+	        volatile uint32_t PLAIN_test = PLAIN;       
+            //if (KEY_0 != 0x0123456789ABCDEFUL){
             //reg_mprj_datal = 0xAB600000; //how they flagged the start of the test
             //break;  //no break? 
-            }
-            PLAIN = 0x0101010101010101L;
-            if (KEY != 0x0101010101010101L){
+            //}
+            //PLAIN = 0x0101010101010101L;
+            //if (KEY != 0x0101010101010101L){
             //reg_mprj_datal = 0xAB610000; 
-            }
-            CMOS_OUT = 0xFEDCBA9876543210L;
-            if (KEY != 0xFEDCBA9876543210L){
+            //}
+            //CMOS_OUT = 0xFEDCBA9876543210L;
+            //if (KEY != 0xFEDCBA9876543210L){
             //reg_mprj_datal = 0xAB610000;
-            }
-        }
-        else if (i==1){
+            //}
+        //}
+        /*else if (i==1){
             KEY = 0x0101010101010101L;
             if (KEY != 0x0101010101010101L){
             //reg_mprj_datal = 0xAB610000;
@@ -143,10 +149,10 @@ void main()
             if (KEY != 0xFFFFFFFFFFFFFFFFL){
             //reg_mprj_datal = 0xAB610000;
             }
-        }
+        }*/
         for (int j=0; j<200; j++); //doing a busy wait, I think. 
         reg_mprj_datal = 0xAB610000;
-    }
+    //}
 	
 	/*reg_mprj_datal = 0xAB600000;
 

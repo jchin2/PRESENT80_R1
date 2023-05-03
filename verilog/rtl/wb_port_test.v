@@ -35,8 +35,8 @@
  *-------------------------------------------------------------
  */
 
-module wb_port_test #( //maybe we can give it its own name 
-    parameter   [31:0]  BASE_ADDRESS    = 32'h03000000,        // base address
+module wb_port_test #(
+    parameter   [31:0]  BASE_ADDRESS    = 32'h30000000,        // base address
     parameter   [31:0]  KEY_0_ADDRESS   = BASE_ADDRESS,
     parameter   [31:0]  KEY_1_ADDRESS   = BASE_ADDRESS + 4,
     parameter   [31:0]  PLAIN_0_ADDRESS  = BASE_ADDRESS + 8,
@@ -83,10 +83,6 @@ module wb_port_test #( //maybe we can give it its own name
     wire [15:0] io_out;
     wire [15:0] io_oeb;
 
-    wire [15:0] rdata; 
-    wire [15:0] wdata;
-    wire [15:0] count;
-
     wire valid;
     wire [3:0] wstrb;
     wire [31:0] la_write;
@@ -94,10 +90,12 @@ module wb_port_test #( //maybe we can give it its own name
     // WB MI A
     assign valid = wbs_cyc_i && wbs_stb_i; 
     assign wstrb = wbs_sel_i & {4{wbs_we_i}};
-    assign wdata = wbs_dat_i[15:0];
-
+    //assign wdata = wbs_dat_i[15:0];
+    assign wbs_ack_o = valid ? ack_internal : 1'b0;
+    //assign wbs_ack_o = 1'b1;
+    assign wbs_dat_o = valid ? rdata : {WIDTH{1'bz}};
     // IO
-    assign io_out = count;
+    //assign io_out = count;
     assign io_oeb = {(15){rst}};
 
     // IRQ
@@ -116,6 +114,8 @@ module wb_port_test #( //maybe we can give it its own name
     localparam WIDTH = 32;
     
     reg [WIDTH-1:0] storage [ELEMENTS-1:0];
+    reg ack_internal;
+    reg [31:0] rdata;
  ////////////////////////////////////////////////////////////////////////////////////////////////   
         
     //assign o_wb_stall = 0; //dont seem to see this used in user_project_wrapper.v and example
@@ -125,7 +125,7 @@ module wb_port_test #( //maybe we can give it its own name
     generate
     for (i=0; i<ELEMENTS; i=i+1) begin
         always @(posedge clk) begin
-            if(reset) begin
+            if(rst) begin
                 storage[i] <= {WIDTH{1'b0}}; 
         	end   
         end
@@ -134,7 +134,7 @@ module wb_port_test #( //maybe we can give it its own name
     
     
     always @(posedge clk) begin
-        if(!reset && valid) begin // && !o_wb_stall) begin
+        if(!rst && valid) begin // && !o_wb_stall) begin
             case(wbs_adr_i)
                 KEY_0_ADDRESS, KEY_1_ADDRESS, 
                 PLAIN_0_ADDRESS, PLAIN_1_ADDRESS, 
@@ -145,31 +145,41 @@ module wb_port_test #( //maybe we can give it its own name
                     if (wstrb[3]) storage[wbs_adr_i[DEPTH_LOG2-1:0]][31:24] <= wbs_dat_i[31:24];
                 end
             endcase
-        end 
+        end
     end
     
     // reads
     always @(posedge clk) begin
-        if(valid && !i_wb_we) // && !o_wb_stall)
+        if(valid && !wbs_we_i) begin // && !o_wb_stall)
             case(wbs_adr_i)
                 KEY_0_ADDRESS, KEY_1_ADDRESS,
                 PLAIN_0_ADDRESS, PLAIN_1_ADDRESS,
                 CMOS_OUT_0_ADDRESS, CMOS_OUT_1_ADDRESS, 
                 CONTROL_0_ADDRESS:
-                    wbs_dat_o <= storage[wbs_adr_i [DEPTH_LOG2-1:0]];
+                    rdata <= storage[wbs_adr_i [DEPTH_LOG2-1:0]];
                 default:
-                    wbs_dat_o <= 32'b0;
+                    rdata <= 32'b0;
             endcase
+        end
     end
     
     // acks
     always @(posedge clk) begin
-        if(reset)
-            wbs_ack_o <= 0;
+        if(rst)
+            ack_internal <= 1'b0;
         else
             // return ack immediately
             //$display("Addr %h, width %d, signal p1: %d", i_wb_addr, $clog2(WIDTH/8), ((i_wb_addr & (WIDTH/8 - 1)) == {32{1'b0}}));
-            wbs_ack_o <= (valid && !wbs_ack_o && /*!o_wb_stall &&*/ ((wbs_adr_i & (WIDTH/8 - 1)) == {$clog2(WIDTH/8){1'b0}}) && (wbs_adr_i >= BASE_ADDRESS) && (wbs_adr_i <= BASE_ADDRESS + 24));
+            /*$display("Time %d, Valid %d, !ack_internal %d, wbs_Addr_i %h, width %d, clog2width %d, >= %d, <= %d", 
+            $time, 
+            valid, 
+            !ack_internal, 
+            wbs_adr_i, 
+            (WIDTH/8), 
+            $clog2(WIDTH/8){1'b0}, 
+            (wbs_adr_i >= BASE_ADDRESS), 
+            (wbs_adr_i <= BASE_ADDRESS + 24));*/
+            ack_internal <= valid && !ack_internal; //&& /*!o_wb_stall &&*/ (wbs_adr_i[$clog2(WIDTH/8)-1:0] == {$clog2(WIDTH/8){1'b0}}) && (wbs_adr_i >= BASE_ADDRESS);// && (wbs_adr_i <= (BASE_ADDRESS + 24)); //Final (wbs_adr_i <= BASE_ADDRESS + 24) 
     end
     
 endmodule
