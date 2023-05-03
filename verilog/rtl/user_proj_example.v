@@ -83,10 +83,6 @@ module user_proj_example #(
     wire [15:0] io_out;
     wire [15:0] io_oeb;
 
-    wire [15:0] rdata; 
-    wire [15:0] wdata;
-    wire [15:0] count;
-
     wire valid;
     wire [3:0] wstrb;
     wire [31:0] la_write;
@@ -94,10 +90,11 @@ module user_proj_example #(
     // WB MI A
     assign valid = wbs_cyc_i && wbs_stb_i; 
     assign wstrb = wbs_sel_i & {4{wbs_we_i}};
-    assign wdata = wbs_dat_i[15:0];
-
+    //assign wdata = wbs_dat_i[15:0];
+    assign wbs_ack_o = ack_internal;
+    assign wbs_dat_o = rdata;
     // IO
-    assign io_out = count;
+    //assign io_out = count;
     assign io_oeb = {(15){rst}};
 
     // IRQ
@@ -116,6 +113,8 @@ module user_proj_example #(
     localparam WIDTH = 32;
     
     reg [WIDTH-1:0] storage [ELEMENTS-1:0];
+    reg ack_internal;
+    reg [31:0] rdata;
  ////////////////////////////////////////////////////////////////////////////////////////////////   
         
     //assign o_wb_stall = 0; //dont seem to see this used in user_project_wrapper.v and example
@@ -125,7 +124,7 @@ module user_proj_example #(
     generate
     for (i=0; i<ELEMENTS; i=i+1) begin
         always @(posedge clk) begin
-            if(reset) begin
+            if(rst) begin
                 storage[i] <= {WIDTH{1'b0}}; 
         	end   
         end
@@ -134,7 +133,7 @@ module user_proj_example #(
     
     
     always @(posedge clk) begin
-        if(!reset && valid) begin // && !o_wb_stall) begin
+        if(!rst && valid) begin // && !o_wb_stall) begin
             case(wbs_adr_i)
                 KEY_0_ADDRESS, KEY_1_ADDRESS, 
                 PLAIN_0_ADDRESS, PLAIN_1_ADDRESS, 
@@ -150,26 +149,26 @@ module user_proj_example #(
     
     // reads
     always @(posedge clk) begin
-        if(valid && !i_wb_we) // && !o_wb_stall)
+        if(valid && !wbs_we_i) // && !o_wb_stall)
             case(wbs_adr_i)
                 KEY_0_ADDRESS, KEY_1_ADDRESS,
                 PLAIN_0_ADDRESS, PLAIN_1_ADDRESS,
                 CMOS_OUT_0_ADDRESS, CMOS_OUT_1_ADDRESS, 
                 CONTROL_0_ADDRESS:
-                    wbs_dat_o <= storage[wbs_adr_i [DEPTH_LOG2-1:0]];
+                    rdata <= storage[wbs_adr_i [DEPTH_LOG2-1:0]];
                 default:
-                    wbs_dat_o <= 32'b0;
+                    rdata <= 32'b0;
             endcase
     end
     
     // acks
     always @(posedge clk) begin
-        if(reset)
-            wbs_ack_o <= 0;
+        if(rst)
+            ack_internal <= 0;
         else
             // return ack immediately
             //$display("Addr %h, width %d, signal p1: %d", i_wb_addr, $clog2(WIDTH/8), ((i_wb_addr & (WIDTH/8 - 1)) == {32{1'b0}}));
-            wbs_ack_o <= (valid && !wbs_ack_o && /*!o_wb_stall &&*/ ((wbs_adr_i & (WIDTH/8 - 1)) == {$clog2(WIDTH/8){1'b0}}) && (wbs_adr_i >= BASE_ADDRESS) && (wbs_adr_i <= BASE_ADDRESS + 24));
+            ack_internal <= (valid && !ack_internal && /*!o_wb_stall &&*/ ((wbs_adr_i & (WIDTH/8 - 1)) == {$clog2(WIDTH/8){1'b0}}) && (wbs_adr_i >= BASE_ADDRESS) && (wbs_adr_i <= BASE_ADDRESS + 24));
     end
     
 endmodule

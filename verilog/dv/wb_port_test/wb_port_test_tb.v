@@ -228,7 +228,7 @@ module wb_port_test_tb;
 	);
 
 	spiflash #(
-		.FILENAME("wb_port.hex")
+		.FILENAME("wb_port_test.hex")
 	) spiflash (
 		.csb(flash_csb),
 		.clk(flash_clk),
