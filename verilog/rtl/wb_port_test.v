@@ -38,12 +38,12 @@
 module wb_port_test #(
     parameter   [31:0]  BASE_ADDRESS    = 32'h30000000,        // base address
     parameter   [31:0]  KEY_0_ADDRESS   = BASE_ADDRESS,
-    parameter   [31:0]  KEY_1_ADDRESS   = BASE_ADDRESS + 4,
-    parameter   [31:0]  PLAIN_0_ADDRESS  = BASE_ADDRESS + 8,
-    parameter   [31:0]  PLAIN_1_ADDRESS  = BASE_ADDRESS + 12,
-    parameter   [31:0]  CMOS_OUT_0_ADDRESS  = BASE_ADDRESS + 16,
-    parameter   [31:0]  CMOS_OUT_1_ADDRESS  = BASE_ADDRESS + 20,
-    parameter   [31:0]  CONTROL_0_ADDRESS  = BASE_ADDRESS + 24
+    parameter   [31:0]  KEY_1_ADDRESS   = BASE_ADDRESS + 4, // 0x...4, ...1
+    parameter   [31:0]  PLAIN_0_ADDRESS  = BASE_ADDRESS + 8, // 0x...8, ...10
+    parameter   [31:0]  PLAIN_1_ADDRESS  = BASE_ADDRESS + 12, // 0x...c, ...11
+    //parameter   [31:0]  CMOS_OUT_0_ADDRESS  = BASE_ADDRESS + 16,
+    //parameter   [31:0]  CMOS_OUT_1_ADDRESS  = BASE_ADDRESS + 20,
+    parameter   [31:0]  CONTROL_0_ADDRESS  = BASE_ADDRESS + 16
 )(
 `ifdef USE_POWER_PINS
     inout vccd1,	// User area 1 1.8V supply
@@ -62,16 +62,19 @@ module wb_port_test #(
     input [31:0] wbs_adr_i,
     output wbs_ack_o,
     output [31:0] wbs_dat_o,
+    output wire [63:0] key_out,
+    output wire [63:0] plain_out,
 
     // Logic Analyzer Signals
+    //what if just enable 2 pins on the logic analyzer for the CLK and RST?
     input  [127:0] la_data_in,
     output [127:0] la_data_out,
     input  [127:0] la_oenb,
 
     // IOs
-    input  [15:0] io_in,
-    output [15:0] io_out,
-    output [15:0] io_oeb,
+    input wire [15:0] io_in,
+    output wire [15:0] io_out,
+    output wire [15:0] io_oeb,
 
     // IRQ
     output [2:0] irq
@@ -79,14 +82,15 @@ module wb_port_test #(
     wire clk;
     wire rst;
 
-    wire [15:0] io_in;
-    wire [15:0] io_out;
-    wire [15:0] io_oeb;
+    /*wire [15:0] in; //io_in;
+    wire [15:0] out; //io_out;
+    wire [15:0] oeb;//io_oeb;*/
 
     wire valid;
     wire [3:0] wstrb;
     wire [31:0] la_write;
-
+    //wire [63:0] key_out;
+    //wire [63:0] plain_out;
     // WB MI A
     assign valid = wbs_cyc_i && wbs_stb_i; 
     assign wstrb = wbs_sel_i & {4{wbs_we_i}};
@@ -97,10 +101,11 @@ module wb_port_test #(
     // IO
     //assign io_out = count;
     assign io_oeb = {(15){rst}};
-
+	assign io_out = 0;
+	assign la_data_out =0;
     // IRQ
     assign irq = 3'b000;	// Unused
-
+	
     // LA
     //assign la_data_out = {{(127-BITS){1'b0}}, count};
     // Assuming LA probes [63:32] are for controlling the count register  
@@ -109,7 +114,9 @@ module wb_port_test #(
     assign clk = (~la_oenb[64]) ? la_data_in[64]: wb_clk_i;
     assign rst = (~la_oenb[65]) ? la_data_in[65]: wb_rst_i;
     
-    localparam DEPTH_LOG2 = 5;
+    assign key_out = {storage[KEY_0_ADDRESS >> $clog2(WIDTH/8)], storage[KEY_1_ADDRESS >> $clog2(WIDTH/8)]};
+    assign plain_out = {storage[PLAIN_0_ADDRESS >> $clog2(WIDTH/8)], storage[PLAIN_1_ADDRESS >> $clog2(WIDTH/8)]};
+    localparam DEPTH_LOG2 = 3;
     localparam ELEMENTS = 2**DEPTH_LOG2;
     localparam WIDTH = 32;
     
@@ -132,17 +139,17 @@ module wb_port_test #(
     end
     endgenerate
     
-    
+    // moving the address bits we are looking at by 2 to the left
     always @(posedge clk) begin
         if(!rst && valid) begin // && !o_wb_stall) begin
             case(wbs_adr_i)
                 KEY_0_ADDRESS, KEY_1_ADDRESS, 
                 PLAIN_0_ADDRESS, PLAIN_1_ADDRESS, 
                 CONTROL_0_ADDRESS: begin
-                    if (wstrb[0]) storage[wbs_adr_i[DEPTH_LOG2-1:0]][7:0] <= wbs_dat_i[7:0];
-                    if (wstrb[1]) storage[wbs_adr_i[DEPTH_LOG2-1:0]][15:8] <= wbs_dat_i[15:8];
-                    if (wstrb[2]) storage[wbs_adr_i[DEPTH_LOG2-1:0]][23:16] <= wbs_dat_i[23:16];
-                    if (wstrb[3]) storage[wbs_adr_i[DEPTH_LOG2-1:0]][31:24] <= wbs_dat_i[31:24];
+                    if (wstrb[0]) storage[wbs_adr_i[DEPTH_LOG2-1+$clog2(WIDTH/8):$clog2(WIDTH/8)]][7:0] <= wbs_dat_i[7:0];
+                    if (wstrb[1]) storage[wbs_adr_i[DEPTH_LOG2-1+$clog2(WIDTH/8):$clog2(WIDTH/8)]][15:8] <= wbs_dat_i[15:8];
+                    if (wstrb[2]) storage[wbs_adr_i[DEPTH_LOG2-1+$clog2(WIDTH/8):$clog2(WIDTH/8)]][23:16] <= wbs_dat_i[23:16];
+                    if (wstrb[3]) storage[wbs_adr_i[DEPTH_LOG2-1+$clog2(WIDTH/8):$clog2(WIDTH/8)]][31:24] <= wbs_dat_i[31:24];
                 end
             endcase
         end
@@ -150,13 +157,13 @@ module wb_port_test #(
     
     // reads
     always @(posedge clk) begin
-        if(valid && !wbs_we_i) begin // && !o_wb_stall)
+        if(valid && !wbs_we_i) begin // && !o_wb_stall)a
             case(wbs_adr_i)
                 KEY_0_ADDRESS, KEY_1_ADDRESS,
                 PLAIN_0_ADDRESS, PLAIN_1_ADDRESS,
-                CMOS_OUT_0_ADDRESS, CMOS_OUT_1_ADDRESS, 
+                //CMOS_OUT_0_ADDRESS, CMOS_OUT_1_ADDRESS, 
                 CONTROL_0_ADDRESS:
-                    rdata <= storage[wbs_adr_i [DEPTH_LOG2-1:0]];
+                    rdata <= storage[wbs_adr_i[DEPTH_LOG2-1+$clog2(WIDTH/8):$clog2(WIDTH/8)]];
                 default:
                     rdata <= 32'b0;
             endcase
